@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ReadyState } from "react-use-websocket";
 import { useWebSocket } from "react-use-websocket/dist/lib/use-websocket";
 import API from "../../API";
 
-const ChatSection = ({room}) => {
+const ChatSection = ({ room }) => {
   //   const currentPerson = "Sharon Lessman";
   const currentPerson = room.name;
   const currentStatus = room.status;
@@ -13,10 +13,15 @@ const ChatSection = ({room}) => {
   const [connect, setConnect] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
   const [liveChatData, setLiveChatData] = useState([]);
-  const [chatVisible,setChatVisible] = useState(true);
-  const [connectedRoom,setConnectedRoom] = useState(-1);
+
+  const [connectedRoom, setConnectedRoom] = useState("-1");
+  const [roomPreview, setRoomPreview] = useState(false);
+
+  const [connectedStatus, setConnectedStatus] = useState({});
+  const bottomRef = useRef();
 
   const { sendMessage, lastMessage, readyState } = useWebSocket(
     API.url,
@@ -32,35 +37,56 @@ const ChatSection = ({room}) => {
   }[readyState];
 
   useEffect(() => {
+    console.log("room change called,", room);
+    if (isActive) {
+      if (room.roomId === connectedRoom) {
+        setRoomPreview(false);
+        setUsername(connectedStatus.username);
+      } else {
+        setRoomPreview(true);
+      }
+    }
+  }, [room, connectedRoom]);
+
+  useEffect(() => {
+    setMessage("");
+  }, [room]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [liveChatData]);
+
+  useEffect(() => {
     console.log("lastMessage", lastMessage);
     console.log("readyState", readyState);
     console.log("connectionStatus", connectionStatus);
   }, [lastMessage, readyState]);
 
+  //Handling different socket states
   useEffect(() => {
     const state = {
       type: "System",
       content: "",
     };
     if (readyState === 0) {
-      state.content = "Connecting to Room 1...";
+      state.content = "Establishing Connection...";
       setLiveChatData([...liveChatData, state]);
       setIsActive(false);
       setIsConnecting(true);
     }
     if (readyState === 1) {
-      state.content = "Connected to Room 1";
-      setLiveChatData([...liveChatData, state]);
       setIsActive(true);
       setIsConnecting(false);
-      setConnectedRoom(room.roomId);
+      handleChangeRoom(room.roomId);
     }
     if (readyState === 3) {
-      state.content = "Disconnected from Room 1";
+      state.content = "Disconnected from Room";
       setLiveChatData([...liveChatData, state]);
       setIsActive(false);
       setIsConnecting(false);
-      setConnectedRoom(-1);
+      setConnectedRoom("-1");
+      setConnect(false);
+      setConnectedStatus({ ...connectedStatus, connected: false });
     }
   }, [readyState]);
 
@@ -85,34 +111,63 @@ const ChatSection = ({room}) => {
   //for receiving messages
   useEffect(() => {
     if (lastMessage) {
-      const msg = lastMessage.data;
-      console.log("Received Message:", msg);
-      const newMessage = {
-        sender: "Stranger",
-        receiver: "You",
-        content: msg,
-        time: "0:00 am",
-        outgoing: false,
-      };
+      let newMessage;
+      const message = JSON.parse(lastMessage.data);
+      if (!message) {
+        newMessage = { type: "System", content: "Unknown Error" };
+      } else if (message.type === "SYS") {
+        if (message.action === "RC") {
+          if (message.status === "Success") {
+            newMessage = {
+              type: "System",
+              content: `Connected to Room ${connectedRoom}`,
+            };
+          } else {
+            newMessage = {
+              type: "System",
+              content: `Failed to connect to Room`,
+            };
+          }
+        }
+      } else if (message.username) {
+        newMessage = {
+          sender: message.username,
+          content: message.message,
+          time: "0:00 am",
+          outgoing: false,
+        };
+      }
+      console.log("Received Message:", message);
       setLiveChatData([...liveChatData, newMessage]);
     }
   }, [lastMessage]);
 
-  useEffect(()=>{
-    if(room.roomId === connectedRoom) {
-        setChatVisible(true);
-        setIsActive(true);
-    } else {
-        setChatVisible(false);
-        setIsActive(false);
-    }
-  },[room]);
+  const handleChangeRoom = (rid) => {
+    const state = {
+      type: "System",
+      content: `Connecting to Room ${rid}...`,
+    };
+    setLiveChatData([state]);
+    const params = {
+      roomId: rid,
+      username: username,
+    };
+    sendMessage(JSON.stringify({ action: "changeroom", data: params }));
+    setConnectedStatus({ ...params, connected: true });
+    setConnectedRoom(rid);
+  };
 
-  const handleConnect = () => {
-    if(!connect)
-        setConnect(true);
-    else {
-        setConnect(false);
+  const handleConnect = (isConnect) => {
+    console.log("isConnect", isConnect);
+    console.log("roomPreview", roomPreview);
+    if (roomPreview) {
+      //make room switch happen
+      setLiveChatData([]);
+      setRoomPreview(false);
+      handleChangeRoom(room.roomId);
+    } else {
+      if (isConnect) setConnect(true);
+      else setConnect(false);
     }
   };
 
@@ -129,8 +184,7 @@ const ChatSection = ({room}) => {
     setMessage("");
 
     const newMessage = {
-      sender: "You",
-      receiver: "Stranger",
+      sender: username,
       content: message,
       time: "0:00 am",
       outgoing: true,
@@ -181,86 +235,103 @@ const ChatSection = ({room}) => {
   //   ];
 
   return (
-    <div class="col-12 col-lg-7 col-xl-9">
-      <div class="py-2 px-4 border-bottom d-none d-lg-block">
-        <div class="d-flex align-items-center py-1">
-          <div class="position-relative">
+    <div className="col-12 col-lg-7 col-xl-9">
+      <div className="py-2 px-4 border-bottom d-none d-lg-block">
+        <div className="d-flex align-items-center py-1">
+          <div className="position-relative">
             <img
               src={roomImage}
-              class="rounded-circle mr-1"
+              className="rounded-circle mr-1"
               alt={currentPerson}
               width="40"
               height="40"
             />
           </div>
-          <div class="flex-grow-1 pl-3">
+          <div className="flex-grow-1 pl-3">
             <strong>{currentPerson}</strong>
-            <div class="text-muted small">{currentStatus}</div>
+            <div className="text-muted small">{currentStatus}</div>
+          </div>
+          <div style={{ marginRight: "7px" }}>
+            <input
+              type="text"
+              className="form-control my-3"
+              placeholder="Enter username"
+              disabled={roomPreview ? false : isActive}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
           </div>
           <div>
             <button
-              class="btn btn-primary border px-3"
+              className="btn btn-primary border px-3"
               disabled={isConnecting}
-              onClick={handleConnect}
+              onClick={handleConnect.bind(null, roomPreview || !isActive)}
             >
-              {isActive ? "Disconnect" : "Connect"}
+              {roomPreview || !isActive ? "Connect" : "Disconnect"}
             </button>
           </div>
         </div>
       </div>
 
-      <div class="position-relative">
-        <div class="chat-messages p-4">
-          {liveChatData.map((message) => {
-            //test
-            if (message.type) {
-              return <p>{message.content}</p>;
-            }
-            return (
-              <div
-                class={`chat-message-${
-                  message.outgoing ? "right" : "left"
-                } pb-4`}
-              >
-                <div>
-                  <img
-                    src={message.outgoing ? myavatar : roomImage}
-                    class="rounded-circle mr-1"
-                    alt={message.sender}
-                    width="40"
-                    height="40"
-                  />
-                  <div class="text-muted small text-nowrap mt-2">
-                    {message.time}
+      <div className="position-relative">
+        <div className="chat-messages p-4">
+          {!roomPreview
+            ? liveChatData.map((message, index) => {
+                //test
+                if (message.type) {
+                  return <p key={index}>{message.content}</p>;
+                }
+                return (
+                  <div
+                    key={index}
+                    className={`chat-message-${
+                      message.outgoing ? "right" : "left"
+                    } pb-4`}
+                  >
+                    <div>
+                      <img
+                        src={message.outgoing ? myavatar : roomImage}
+                        className="rounded-circle mr-1"
+                        alt={message.sender}
+                        width="40"
+                        height="40"
+                      />
+                      <div className="text-muted small text-nowrap mt-2">
+                        {message.time}
+                      </div>
+                    </div>
+                    <div
+                      className={`flex-shrink-1 bg-light rounded py-2 px-3 m${
+                        message.outgoing ? "r" : "l"
+                      }-3`}
+                    >
+                      <div className="font-weight-bold mb-1">
+                        {message.outgoing ? "You" : message.sender}
+                      </div>
+                      {message.content}
+                    </div>
                   </div>
-                </div>
-                <div
-                  class={`flex-shrink-1 bg-light rounded py-2 px-3 m${
-                    message.outgoing ? "r" : "l"
-                  }-3`}
-                >
-                  <div class="font-weight-bold mb-1">
-                    {message.outgoing ? "You" : message.sender}
-                  </div>
-                  {message.content}
-                </div>
-              </div>
-            );
-          })}
+                );
+              })
+            : "Enter Username and Connect to join this room"}
+          <div ref={bottomRef} />
         </div>
       </div>
 
-      <div class="flex-grow-0 py-3 px-4 border-top">
+      <div className="flex-grow-0 py-3 px-4 border-top">
         <form onSubmit={handleSend}>
-          <div class="input-group">
+          <div className="input-group">
             <input
               type="text"
-              class="form-control"
+              className="form-control"
               placeholder="Type your message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
             />
-            <button class="btn btn-primary" disabled={!isActive}>
+            <button
+              className="btn btn-primary"
+              disabled={roomPreview ? true : isActive ? false : true}
+            >
               Send
             </button>
           </div>

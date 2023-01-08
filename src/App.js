@@ -3,7 +3,7 @@ import Chat from "./view/chat/Chat";
 
 function App() {
   return (
-    <main class="content">
+    <main className="content">
       <Chat/>
     </main>
   );
