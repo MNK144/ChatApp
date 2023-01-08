@@ -3,14 +3,26 @@ import { ReadyState } from "react-use-websocket";
 import { useWebSocket } from "react-use-websocket/dist/lib/use-websocket";
 import API from "../../API";
 
-const ChatSection = () => {
+const ChatSection = ({room}) => {
   //   const currentPerson = "Sharon Lessman";
-  const currentPerson = "Room 1";
-  const currentStatus = "Online";
+  const currentPerson = room.name;
+  const currentStatus = room.status;
+  const roomImage = room.image;
   const myavatar = "https://bootdey.com/img/Content/avatar/avatar1.png";
-  const theiravatar = "https://bootdey.com/img/Content/avatar/avatar2.png";
 
-  const { sendMessage, lastMessage, readyState } = useWebSocket(API.url);
+  const [connect, setConnect] = useState(false);
+  const [isActive, setIsActive] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [liveChatData, setLiveChatData] = useState([]);
+  const [chatVisible,setChatVisible] = useState(true);
+  const [connectedRoom,setConnectedRoom] = useState(-1);
+
+  const { sendMessage, lastMessage, readyState } = useWebSocket(
+    API.url,
+    undefined,
+    connect
+  );
   const connectionStatus = {
     [ReadyState.CONNECTING]: "Connecting",
     [ReadyState.OPEN]: "Open",
@@ -18,11 +30,6 @@ const ChatSection = () => {
     [ReadyState.CLOSED]: "Closed",
     [ReadyState.UNINSTANTIATED]: "Uninstantiated",
   }[readyState];
-
-  const [isFirst, setFirst] = useState(true);
-  const [isActive, setIsActive] = useState(false);
-  const [message, setMessage] = useState("");
-  const [liveChatData, setLiveChatData] = useState([]);
 
   useEffect(() => {
     console.log("lastMessage", lastMessage);
@@ -37,18 +44,23 @@ const ChatSection = () => {
     };
     if (readyState === 0) {
       state.content = "Connecting to Room 1...";
-      setLiveChatData([...liveChatData,state]);
+      setLiveChatData([...liveChatData, state]);
       setIsActive(false);
+      setIsConnecting(true);
     }
     if (readyState === 1) {
       state.content = "Connected to Room 1";
-      setLiveChatData([...liveChatData,state]);
+      setLiveChatData([...liveChatData, state]);
       setIsActive(true);
+      setIsConnecting(false);
+      setConnectedRoom(room.roomId);
     }
     if (readyState === 3) {
       state.content = "Disconnected from Room 1";
-      setLiveChatData([...liveChatData,state]);
+      setLiveChatData([...liveChatData, state]);
       setIsActive(false);
+      setIsConnecting(false);
+      setConnectedRoom(-1);
     }
   }, [readyState]);
 
@@ -85,6 +97,24 @@ const ChatSection = () => {
       setLiveChatData([...liveChatData, newMessage]);
     }
   }, [lastMessage]);
+
+  useEffect(()=>{
+    if(room.roomId === connectedRoom) {
+        setChatVisible(true);
+        setIsActive(true);
+    } else {
+        setChatVisible(false);
+        setIsActive(false);
+    }
+  },[room]);
+
+  const handleConnect = () => {
+    if(!connect)
+        setConnect(true);
+    else {
+        setConnect(false);
+    }
+  };
 
   const handleSend = (e) => {
     e.preventDefault();
@@ -156,7 +186,7 @@ const ChatSection = () => {
         <div class="d-flex align-items-center py-1">
           <div class="position-relative">
             <img
-              src={theiravatar}
+              src={roomImage}
               class="rounded-circle mr-1"
               alt={currentPerson}
               width="40"
@@ -165,28 +195,15 @@ const ChatSection = () => {
           </div>
           <div class="flex-grow-1 pl-3">
             <strong>{currentPerson}</strong>
-            <div class="text-muted small">
-              <em>{currentStatus}</em>
-            </div>
+            <div class="text-muted small">{currentStatus}</div>
           </div>
           <div>
-            <button class="btn btn-primary border px-3">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="feather feather-more-horizontal feather-lg"
-              >
-                <circle cx="12" cy="12" r="1"></circle>
-                <circle cx="19" cy="12" r="1"></circle>
-                <circle cx="5" cy="12" r="1"></circle>
-              </svg>
+            <button
+              class="btn btn-primary border px-3"
+              disabled={isConnecting}
+              onClick={handleConnect}
+            >
+              {isActive ? "Disconnect" : "Connect"}
             </button>
           </div>
         </div>
@@ -207,7 +224,7 @@ const ChatSection = () => {
               >
                 <div>
                   <img
-                    src={message.outgoing ? myavatar : theiravatar}
+                    src={message.outgoing ? myavatar : roomImage}
                     class="rounded-circle mr-1"
                     alt={message.sender}
                     width="40"
@@ -243,7 +260,9 @@ const ChatSection = () => {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
             />
-            <button class="btn btn-primary" disabled={!isActive}>Send</button>
+            <button class="btn btn-primary" disabled={!isActive}>
+              Send
+            </button>
           </div>
         </form>
       </div>

@@ -1,56 +1,117 @@
 import React from "react";
 
-const Sidebar = () => {
-  const data = [
+const Sidebar = ({ room, setRoom }) => {
+  //   const data = [
+  //     {
+  //       name: "Vanessa Tucker",
+  //       status: "Online",
+  //       unread: "5",
+  //       image: "https://bootdey.com/img/Content/avatar/avatar5.png",
+  //     },
+  //     {
+  //       name: "William Harris",
+  //       status: "Online",
+  //       unread: "2",
+  //       image: "https://bootdey.com/img/Content/avatar/avatar2.png",
+  //     },
+  //     {
+  //       name: "Sharon Lessman",
+  //       status: "Online",
+  //       unread: "0",
+  //       image: "https://bootdey.com/img/Content/avatar/avatar3.png",
+  //     },
+  //     {
+  //       name: "Christina Mason",
+  //       status: "Offline",
+  //       unread: "0",
+  //       image: "https://bootdey.com/img/Content/avatar/avatar4.png",
+  //     },
+  //     {
+  //       name: "Fiona Green",
+  //       status: "Offline",
+  //       unread: "0",
+  //       image: "https://bootdey.com/img/Content/avatar/avatar5.png",
+  //     },
+  //     {
+  //       name: "Doris Wilder",
+  //       status: "Offline",
+  //       unread: "0",
+  //       image: "https://bootdey.com/img/Content/avatar/avatar2.png",
+  //     },
+  //     {
+  //       name: "Haley Kennedy",
+  //       status: "Offline",
+  //       unread: "0",
+  //       image: "https://bootdey.com/img/Content/avatar/avatar4.png",
+  //     },
+  //     {
+  //       name: "Jennifer Chang",
+  //       status: "Offline",
+  //       unread: "0",
+  //       image: "https://bootdey.com/img/Content/avatar/avatar4.png",
+  //     },
+  //   ];
+  const roomData = [
     {
-      name: "Vanessa Tucker",
+      roomId: 1,
+      name: "Room 1",
       status: "Online",
-      unread: "5",
+      unread: "0",
       image: "https://bootdey.com/img/Content/avatar/avatar5.png",
     },
     {
-      name: "William Harris",
+      roomId: 2,
+      name: "Room 2",
       status: "Online",
-      unread: "2",
+      unread: "0",
       image: "https://bootdey.com/img/Content/avatar/avatar2.png",
     },
     {
-      name: "Sharon Lessman",
+      roomId: 3,
+      name: "Room 3",
       status: "Online",
       unread: "0",
       image: "https://bootdey.com/img/Content/avatar/avatar3.png",
     },
     {
-      name: "Christina Mason",
-      status: "Offline",
+      roomId: 4,
+      name: "Room 4",
+      status: "Online",
       unread: "0",
       image: "https://bootdey.com/img/Content/avatar/avatar4.png",
     },
     {
-      name: "Fiona Green",
-      status: "Offline",
+      roomId: 5,
+      name: "Room 5",
+      status: "Online",
       unread: "0",
       image: "https://bootdey.com/img/Content/avatar/avatar5.png",
     },
     {
-      name: "Doris Wilder",
-      status: "Offline",
+      roomId: 6,
+      name: "Room 6",
+      status: "Online",
       unread: "0",
       image: "https://bootdey.com/img/Content/avatar/avatar2.png",
     },
     {
-      name: "Haley Kennedy",
-      status: "Offline",
-      unread: "0",
-      image: "https://bootdey.com/img/Content/avatar/avatar4.png",
-    },
-    {
-      name: "Jennifer Chang",
-      status: "Offline",
+      roomId: 7,
+      name: "Room 7",
+      status: "Online",
       unread: "0",
       image: "https://bootdey.com/img/Content/avatar/avatar4.png",
     },
   ];
+
+  const handleRoomChange = (rm) => {
+    console.log(rm);
+    if(rm.roomId === room.roomId) {
+        console.log("Same Room");
+    } else {
+        console.log("Different Room");
+        setRoom(rm);
+    }
+  };
 
   return (
     <div class="col-12 col-lg-5 col-xl-3 border-right">
@@ -66,10 +127,16 @@ const Sidebar = () => {
         </div>
       </div>
 
-      {data.map((people) => (
-        <div class="list-group-item list-group-item-action border-0 sidebar-people noselect">
+      {roomData.map((people, index) => (
+        <div
+          key={index}
+          onClick={handleRoomChange.bind(null, people)}
+          class="list-group-item list-group-item-action border-0 sidebar-people noselect"
+        >
           {people.unread > 0 ? (
-            <div class="badge bg-success float-right badge-custom">{people.unread}</div>
+            <div class="badge bg-success float-right badge-custom">
+              {people.unread}
+            </div>
           ) : null}
           <div class="d-flex align-items-start">
             <img
